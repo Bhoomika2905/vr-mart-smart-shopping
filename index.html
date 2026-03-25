@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VR Mart — AI Smart Shopping</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#111;font-family:'Segoe UI',sans-serif;overflow:hidden;color:#fff;}
+
+    /* Crosshair */
+    #crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;pointer-events:none;display:none;z-index:5;}
+    #crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(255,255,255,0.85);border-radius:2px;}
+    #crosshair::before{width:2px;height:100%;left:50%;transform:translateX(-50%);}
+    #crosshair::after{width:100%;height:2px;top:50%;transform:translateY(-50%);}
+    #crosshair.aimed::before,#crosshair.aimed::after{background:#7C4DFF;}
+
+    #hover-label{position:fixed;top:44%;left:50%;transform:translateX(-50%);background:rgba(124,77,255,0.92);color:#fff;padding:6px 16px;border-radius:20px;font-size:0.85rem;pointer-events:none;display:none;z-index:6;white-space:nowrap;}
+
+    /* Overlay */
+    #overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.92);z-index:10;}
+    #overlay h1{font-size:2.6rem;margin-bottom:0.3rem;}
+    #overlay p{color:#aaa;margin-bottom:2rem;font-size:1rem;}
+    .btn-primary{padding:14px 36px;font-size:1.1rem;background:#7C4DFF;color:#fff;border:none;border-radius:8px;cursor:pointer;transition:background .2s;}
+    .btn-primary:hover{background:#6A3DE8;}
+    .btn-secondary{margin-top:12px;padding:10px 28px;font-size:0.95rem;background:transparent;color:#aaa;border:1px solid #444;border-radius:8px;cursor:pointer;}
+    .btn-secondary:hover{border-color:#888;color:#fff;}
+
+    /* HUD Cart */
+    #hud{position:fixed;top:18px;right:24px;background:rgba(10,10,20,0.9);color:#fff;padding:14px 18px;border-radius:10px;font-size:0.9rem;display:none;min-width:210px;border:1px solid rgba(124,77,255,0.3);}
+    #hud h3{margin-bottom:8px;font-size:1rem;color:#b39dff;}
+    #cart-items{list-style:none;}
+    #cart-items li{padding:3px 0;border-bottom:1px solid #222;font-size:0.82rem;}
+    #cart-total{margin-top:8px;font-weight:bold;color:#7C4DFF;}
+    #go-billing-btn{margin-top:12px;width:100%;padding:9px;background:#7C4DFF;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;display:none;}
+    #go-billing-btn:hover{background:#6A3DE8;}
+
+    /* ── Product Panel ── */
+    #info-panel{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(10,10,22,0.97);color:#fff;padding:20px 24px;border-radius:14px;text-align:left;display:none;max-width:560px;width:95%;border:1px solid rgba(124,77,255,0.5);z-index:20;}
+    #panel-top{display:flex;gap:20px;align-items:flex-start;}
+    #panel-left{flex:1;}
+    #panel-left h2{font-size:1.2rem;margin-bottom:4px;}
+    #panel-left p{font-size:0.88rem;color:#bbb;margin-bottom:8px;}
+    .price{font-size:1.45rem;font-weight:bold;color:#7C4DFF;}
+    .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:bold;margin-left:6px;}
+    .badge-pop{background:rgba(46,204,113,0.2);color:#2ecc71;}
+    .badge-hot{background:rgba(231,76,60,0.2);color:#e74c3c;}
+    .badge-val{background:rgba(124,77,255,0.2);color:#b39dff;}
+    .badge-new{background:rgba(52,152,219,0.2);color:#3498db;}
+
+    /* Dwell bar */
+    #dwell-wrap{margin-top:8px;}
+    #dwell-bar-bg{background:#1a1a2e;border-radius:4px;height:5px;width:100%;overflow:hidden;}
+    #dwell-bar{height:5px;width:0%;border-radius:4px;transition:width .5s,background .5s;}
+    #dwell-label{font-size:0.73rem;color:#555;margin-top:3px;}
+
+    /* Nudge */
+    #smart-nudge{margin-top:10px;padding:8px 12px;background:rgba(243,156,18,0.1);border:1px solid rgba(243,156,18,0.3);border-radius:8px;font-size:0.82rem;color:#f39c12;display:none;}
+    #smart-nudge .nudge-icon{margin-right:5px;}
+
+    #add-to-cart{margin-top:12px;padding:10px 28px;background:#7C4DFF;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;transition:background .2s;}
+    #add-to-cart:hover{background:#6A3DE8;}
+    #close-panel{position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;}
+    #close-panel:hover{color:#fff;}
+
+    /* ── Recommendation Sidebar inside panel ── */
+    #rec-sidebar{width:190px;flex-shrink:0;border-left:1px solid #1e1e35;padding-left:14px;display:none;}
+    #rec-sidebar h4{font-size:0.78rem;color:#7C4DFF;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;}
+    .rec-item{background:#12121f;border-radius:8px;padding:9px;margin-bottom:8px;cursor:pointer;border:1px solid #1e1e35;transition:border-color .2s;}
+    .rec-item:hover{border-color:#7C4DFF;}
+    .rec-item .rname{font-size:0.82rem;color:#ddd;font-weight:600;}
+    .rec-item .rprice{font-size:0.78rem;color:#7C4DFF;margin-top:2px;}
+    .rec-item .rdiff{font-size:0.72rem;margin-top:2px;}
+    .cheaper{color:#2ecc71;}
+    .pricier{color:#e74c3c;}
+    .rec-item .rstat{font-size:0.7rem;color:#555;margin-top:3px;}
+
+    /* ── Live assistant bubble (appears mid-browse) ── */
+    #assistant-bubble{position:fixed;bottom:110px;right:28px;background:rgba(12,12,24,0.97);border:1px solid rgba(124,77,255,0.5);border-radius:14px;padding:14px 16px;max-width:260px;display:none;z-index:25;animation:popIn .3s ease;}
+    @keyframes popIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    #assistant-bubble .ab-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    #assistant-bubble .ab-icon{width:28px;height:28px;background:#7C4DFF;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;}
+    #assistant-bubble .ab-title{font-size:0.8rem;color:#b39dff;font-weight:600;}
+    #assistant-bubble .ab-body{font-size:0.82rem;color:#ccc;line-height:1.5;}
+    #assistant-bubble .ab-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#444;cursor:pointer;font-size:0.9rem;}
+    #assistant-bubble .ab-close:hover{color:#fff;}
+    #assistant-bubble .ab-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+    #assistant-bubble .ab-btn{padding:5px 12px;border-radius:6px;font-size:0.78rem;cursor:pointer;border:1px solid rgba(124,77,255,0.4);background:rgba(124,77,255,0.1);color:#b39dff;}
+    #assistant-bubble .ab-btn:hover{background:rgba(124,77,255,0.25);}
+
+    #resume-hint{position:fixed;top:18px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#aaa;padding:8px 18px;border-radius:20px;font-size:0.82rem;display:none;z-index:15;pointer-events:none;}
+    #controls-hint{position:fixed;bottom:16px;left:16px;color:#444;font-size:0.78rem;display:none;line-height:1.8;}
+
+    /* ── Billing ── */
+    #billing-screen{position:fixed;inset:0;background:rgba(8,8,18,0.99);z-index:50;display:none;overflow-y:auto;padding:40px 20px;}
+    .billing-inner{max-width:600px;margin:0 auto;}
+    .billing-inner h1{font-size:1.8rem;margin-bottom:4px;color:#b39dff;}
+    .billing-inner .sub{color:#555;margin-bottom:28px;font-size:0.9rem;}
+    .order-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1e1e2e;font-size:0.95rem;}
+    .order-row .name{color:#ccc;}
+    .order-row .amt{color:#7C4DFF;font-weight:bold;}
+    .total-row{display:flex;justify-content:space-between;padding:14px 0;font-size:1.1rem;font-weight:bold;}
+    .total-row span:last-child{color:#7C4DFF;font-size:1.3rem;}
+    #confirm-btn{width:100%;padding:14px;background:#7C4DFF;color:#fff;border:none;border-radius:10px;font-size:1.1rem;cursor:pointer;margin-top:20px;}
+    #confirm-btn:hover{background:#6A3DE8;}
+    #back-btn{width:100%;padding:12px;background:transparent;color:#555;border:1px solid #333;border-radius:10px;font-size:0.95rem;cursor:pointer;margin-top:10px;}
+    #back-btn:hover{color:#fff;border-color:#666;}
+
+    /* ── Success ── */
+    #success-screen{position:fixed;inset:0;background:rgba(8,8,18,0.99);z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;}
+    #success-screen .tick{font-size:4rem;margin-bottom:16px;}
+    #success-screen h1{font-size:2rem;color:#2ecc71;margin-bottom:8px;}
+    #success-screen p{color:#aaa;margin-bottom:16px;}
+    #personalized-recs{max-width:520px;width:100%;margin-bottom:24px;}
+    #personalized-recs h3{font-size:1rem;color:#b39dff;margin-bottom:12px;text-align:left;}
+    .post-rec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+    .post-rec-card{background:#12121f;border:1px solid #1e1e35;border-radius:10px;padding:12px;text-align:left;}
+    .post-rec-card .prname{font-size:0.85rem;color:#ddd;font-weight:600;}
+    .post-rec-card .prprice{font-size:0.9rem;color:#7C4DFF;margin-top:4px;font-weight:bold;}
+    .post-rec-card .prreason{font-size:0.72rem;color:#555;margin-top:4px;line-height:1.4;}
+    #view-analytics-btn{padding:14px 36px;background:#7C4DFF;color:#fff;border:none;border-radius:10px;font-size:1.1rem;cursor:pointer;}
+    #view-analytics-btn:hover{background:#6A3DE8;}
+
+    /* ── Analytics ── */
+    #analytics-screen{position:fixed;inset:0;background:#0d0d1a;z-index:70;display:none;overflow-y:auto;padding:28px 22px;}
+    .dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;}
+    .dash-header h1{font-size:1.5rem;color:#b39dff;}
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;}
+    .kpi-card{background:#12121f;border:1px solid #1e1e35;border-radius:12px;padding:14px;text-align:center;}
+    .kpi-card .val{font-size:1.7rem;font-weight:bold;color:#7C4DFF;}
+    .kpi-card .lbl{font-size:0.75rem;color:#555;margin-top:4px;}
+    .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+    @media(max-width:680px){.dash-grid{grid-template-columns:1fr;}}
+    .card{background:#12121f;border:1px solid #1e1e35;border-radius:12px;padding:16px;}
+    .card h3{font-size:0.9rem;color:#b39dff;margin-bottom:12px;}
+    .card.full{grid-column:1/-1;}
+    .heat-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+    .heat-name{font-size:0.8rem;color:#ccc;width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .heat-bar-wrap{flex:1;background:#1a1a2e;border-radius:4px;height:12px;overflow:hidden;}
+    .heat-bar{height:12px;border-radius:4px;}
+    .heat-val{font-size:0.75rem;color:#555;width:36px;text-align:right;}
+    .funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+    .funnel-label{font-size:0.8rem;color:#aaa;width:110px;}
+    .funnel-bar-wrap{flex:1;background:#1a1a2e;border-radius:4px;height:20px;overflow:hidden;}
+    .funnel-bar{height:20px;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:0.73rem;font-weight:bold;}
+    .funnel-pct{font-size:0.78rem;color:#555;width:36px;text-align:right;}
+    .hesit-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1a1a2e;font-size:0.8rem;}
+    .hesit-row .pname{color:#ccc;flex:1;}
+    .hesit-row .htime{color:#f39c12;width:55px;text-align:right;}
+    .hesit-row .verdict{width:110px;text-align:right;}
+    .timeline{list-style:none;}
+    .timeline li{display:flex;gap:10px;margin-bottom:9px;font-size:0.8rem;}
+    .timeline .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+    .timeline .evttime{color:#444;width:45px;flex-shrink:0;}
+    .timeline .evt{color:#bbb;flex:1;}
+    .insight{display:flex;gap:10px;align-items:flex-start;padding:11px;background:#0a0a16;border-radius:8px;margin-bottom:9px;border-left:3px solid #7C4DFF;}
+    .insight .icon{font-size:1.1rem;flex-shrink:0;}
+    .insight .text{font-size:0.82rem;color:#bbb;line-height:1.5;}
+    .insight .text strong{color:#fff;}
+    canvas{display:block;}
+  </style>
+</head>
+<body>
+
+<!-- Landing -->
+<div id="overlay">
+  <h1>🛒 VR Mart</h1>
+  <p>AI-powered virtual shopping with real-time recommendations</p>
+  <button class="btn-primary" id="enter-vr">Enter VR</button>
+  <button class="btn-secondary" id="enter-desktop">Explore on Desktop</button>
+</div>
+
+<div id="crosshair"></div>
+<div id="hover-label"></div>
+<div id="resume-hint">Panel open — interact freely · Esc to close</div>
+
+<!-- Cart HUD -->
+<div id="hud">
+  <h3>🛒 Cart</h3>
+  <ul id="cart-items"></ul>
+  <div id="cart-total">Total: $0.00</div>
+  <button id="go-billing-btn">Proceed to Billing →</button>
+</div>
+
+<!-- Product panel -->
+<div id="info-panel">
+  <button id="close-panel">✕</button>
+  <div id="panel-top">
+    <div id="panel-left">
+      <h2 id="prod-name"></h2>
+      <p id="prod-desc"></p>
+      <div><span class="price" id="prod-price"></span><span id="prod-badge"></span></div>
+      <div id="dwell-wrap">
+        <div id="dwell-bar-bg"><div id="dwell-bar"></div></div>
+        <div id="dwell-label">Viewing for <span id="dwell-sec">0</span>s</div>
+      </div>
+      <div id="smart-nudge"><span class="nudge-icon">⚡</span><span id="nudge-text"></span></div>
+      <button id="add-to-cart">Add to Cart</button>
+    </div>
+    <div id="rec-sidebar">
+      <h4>💡 Alternatives</h4>
+      <div id="rec-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Live assistant bubble -->
+<div id="assistant-bubble">
+  <button class="ab-close" id="ab-close">✕</button>
+  <div class="ab-head">
+    <div class="ab-icon">🤖</div>
+    <div class="ab-title">Smart Assistant</div>
+  </div>
+  <div class="ab-body" id="ab-body"></div>
+  <div class="ab-actions" id="ab-actions"></div>
+</div>
+
+<!-- Billing -->
+<div id="billing-screen">
+  <div class="billing-inner">
+    <h1>🧾 Order Summary</h1>
+    <p class="sub">Review your items before confirming</p>
+    <div id="billing-items"></div>
+    <div class="total-row"><span>Total</span><span id="billing-total">$0.00</span></div>
+    <button id="confirm-btn">✓ Confirm &amp; Complete Purchase</button>
+    <button id="back-btn">← Back to Store</button>
+  </div>
+</div>
+
+<!-- Success + post-purchase recs -->
+<div id="success-screen">
+  <div class="tick">✅</div>
+  <h1>Transaction Complete!</h1>
+  <p>Thank you for shopping at VR Mart.</p>
+  <div id="personalized-recs">
+    <h3>🎯 Based on your session, you might also like:</h3>
+    <div class="post-rec-grid" id="post-rec-grid"></div>
+  </div>
+  <button id="view-analytics-btn">📊 View Shopkeeper Analytics</button>
+</div>
+
+<!-- Analytics dashboard -->
+<div id="analytics-screen">
+  <div class="dash-header">
+    <h1>📊 Shopkeeper Intelligence Dashboard</h1>
+    <span id="session-time-lbl" style="font-size:0.85rem;color:#555;"></span>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="val" id="kpi-viewed">0</div><div class="lbl">Products Viewed</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-inspected">0</div><div class="lbl">Inspected</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-bought">0</div><div class="lbl">Purchased</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-conv">0%</div><div class="lbl">Conversion Rate</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-spend">$0</div><div class="lbl">Total Spend</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-hesit">0</div><div class="lbl">Hesitation Items</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-nudge">0</div><div class="lbl">Nudges Shown</div></div>
+    <div class="kpi-card"><div class="val" id="kpi-recclick">0</div><div class="lbl">Rec. Clicks</div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card"><h3>👁️ Attention Heatmap</h3><div id="heatmap-list"></div></div>
+    <div class="card"><h3>🔽 Purchase Funnel</h3><div id="funnel-list"></div></div>
+    <div class="card full"><h3>🧠 Hesitation Analysis</h3>
+      <div style="display:flex;padding:5px 0 7px;font-size:0.72rem;color:#444;border-bottom:1px solid #1a1a2e;">
+        <span style="flex:1">Product</span><span style="width:55px;text-align:right">Dwell</span>
+        <span style="width:60px;text-align:right">Inspected</span><span style="width:110px;text-align:right">Verdict</span>
+      </div>
+      <div id="hesitation-list"></div>
+    </div>
+    <div class="card"><h3>💰 Spend Breakdown</h3><canvas id="spend-chart" height="200"></canvas></div>
+    <div class="card"><h3>⏱️ Behavioral Timeline</h3><ul class="timeline" id="timeline-list"></ul></div>
+    <div class="card full"><h3>🤖 AI Insights &amp; Recommendations</h3><div id="insights-list"></div></div>
+  </div>
+</div>
+
+<div id="controls-hint">WASD / Arrows — move &nbsp;|&nbsp; Mouse — look<br><span style="color:#7C4DFF">Aim crosshair at product → click to inspect</span></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// PRODUCT CATALOG  (with simulated popularity & brands)
+// ══════════════════════════════════════════════════════
+const PRODUCTS = [
+  {id:'apples',  name:"Organic Apples",   desc:"Fresh crispy red apples, locally sourced.",  price:2.99, color:0xe74c3c, cat:"Produce",   pop:87, stock:12, brand:"FarmFresh"},
+  {id:'milk',    name:"Whole Milk",        desc:"Full-cream milk, 2 liters.",                  price:1.89, color:0xdddddd, cat:"Dairy",     pop:92, stock:8,  brand:"DairyPure"},
+  {id:'bread',   name:"Sourdough Bread",   desc:"Artisan loaf, baked fresh daily.",            price:3.49, color:0xe67e22, cat:"Bakery",    pop:76, stock:5,  brand:"ArtisanBake"},
+  {id:'oj',      name:"Orange Juice",      desc:"100% squeezed, no added sugar.",              price:4.29, color:0xf39c12, cat:"Beverages", pop:81, stock:14, brand:"SunGrove"},
+  {id:'yogurt',  name:"Greek Yogurt",      desc:"Thick, creamy, high-protein yogurt.",         price:2.19, color:0xfafafa, cat:"Dairy",     pop:88, stock:9,  brand:"AlpinePro"},
+  {id:'choc',    name:"Dark Chocolate",    desc:"70% cocoa, fair trade certified.",            price:3.99, color:0x5d4037, cat:"Snacks",    pop:79, stock:20, brand:"CocoaRich"},
+  {id:'water',   name:"Sparkling Water",   desc:"Natural mineral water, 1 liter.",             price:1.49, color:0x81d4fa, cat:"Beverages", pop:70, stock:30, brand:"AquaPure"},
+  {id:'pasta',   name:"Pasta",             desc:"Durum wheat spaghetti, 500g.",                price:1.29, color:0xfff9c4, cat:"Pantry",    pop:83, stock:25, brand:"ItaliaGold"},
+  {id:'oil',     name:"Olive Oil",         desc:"Extra virgin, cold pressed, 500ml.",          price:6.99, color:0xaed581, cat:"Pantry",    pop:74, stock:7,  brand:"MedTerra"},
+  {id:'coffee',  name:"Coffee Beans",      desc:"Medium roast, single origin, 250g.",          price:8.49, color:0x4e342e, cat:"Beverages", pop:91, stock:6,  brand:"BrewMaster"},
+  {id:'cheese',  name:"Cheese Block",      desc:"Mature cheddar, 300g.",                       price:3.79, color:0xffc107, cat:"Dairy",     pop:85, stock:11, brand:"CreamVale"},
+  {id:'rice',    name:"Brown Rice",        desc:"Wholegrain, 1kg bag.",                        price:2.59, color:0xbcaaa4, cat:"Pantry",    pop:72, stock:18, brand:"GrainHarvest"},
+];
+
+// ── Alternative brands per product ──
+const ALTERNATIVES = {
+  apples:  [{name:"Red Delicious Apples", brand:"ValleyFresh",  price:2.29, note:"Budget pick, milder taste"},
+             {name:"Premium Gala Apples",  brand:"OrchardElite", price:3.79, note:"Sweeter, premium quality"}],
+  milk:    [{name:"Skimmed Milk 2L",       brand:"LiteDairy",    price:1.29, note:"Lower fat, same calcium"},
+             {name:"Organic Whole Milk",   brand:"NatureFarm",   price:2.69, note:"Certified organic"}],
+  bread:   [{name:"Wholegrain Loaf",       brand:"NutriSlice",   price:2.19, note:"Higher fibre, budget"},
+             {name:"Rye Sourdough",        brand:"BreadCraft",   price:4.29, note:"Richer flavour, artisan"}],
+  oj:      [{name:"Orange Juice Carton",   brand:"TropicBlend",  price:2.99, note:"From concentrate, cheaper"},
+             {name:"Premium OJ 1L",        brand:"GoldPress",    price:5.49, note:"Cold-pressed, no pulp"}],
+  yogurt:  [{name:"Natural Yogurt 500g",   brand:"SimplePot",    price:1.49, note:"Budget, less protein"},
+             {name:"Pro-Protein Yogurt",   brand:"MuscleNourish",price:3.29, note:"2x protein, gym-focused"}],
+  choc:    [{name:"Milk Chocolate Bar",    brand:"SweetCo",      price:1.99, note:"Sweeter, mass market"},
+             {name:"90% Dark Chocolate",   brand:"PureKakao",    price:4.99, note:"Intense, health-focused"}],
+  water:   [{name:"Still Water 1.5L",      brand:"ClearFlow",    price:0.79, note:"Still, great value"},
+             {name:"Flavoured Sparkling",  brand:"ZestBubble",   price:2.29, note:"Lemon/lime flavour"}],
+  pasta:   [{name:"Gluten-Free Pasta",     brand:"FreeFrom",     price:2.49, note:"Wheat-free alternative"},
+             {name:"Whole Wheat Spaghetti",brand:"WheatHarvest", price:1.79, note:"More fibre, nuttier"}],
+  oil:     [{name:"Sunflower Oil 1L",      brand:"SunPress",     price:1.99, note:"Neutral taste, budget"},
+             {name:"Truffle Olive Oil",    brand:"LuxePress",    price:12.99,note:"Premium gourmet option"}],
+  coffee:  [{name:"Instant Coffee 200g",   brand:"QuickBrew",    price:3.49, note:"Fastest, budget option"},
+             {name:"Espresso Beans 250g",  brand:"BaristaPro",   price:10.99,note:"Stronger, café quality"}],
+  cheese:  [{name:"Mild Cheddar 400g",     brand:"EverydayDairy",price:2.49, note:"Milder, larger pack"},
+             {name:"Aged Gouda 250g",      brand:"DutchFarm",    price:5.29, note:"Nuttier, artisan choice"}],
+  rice:    [{name:"White Basmati 1kg",     brand:"AromaticGrain",price:1.99, note:"Fluffy, aromatic"},
+             {name:"Wild Rice Blend 500g", brand:"WildHarvest",  price:3.99, note:"Nutty, superfood blend"}],
+};
+
+// ── Also-bought (collaborative filtering simulation) ──
+const ALSO_BOUGHT = {
+  apples:  ['yogurt','oj'],   milk:   ['coffee','bread'],  bread: ['cheese','milk'],
+  oj:      ['yogurt','water'],yogurt: ['apples','oj'],     choc:  ['coffee','milk'],
+  water:   ['oj','pasta'],    pasta:  ['oil','cheese'],    oil:   ['pasta','rice'],
+  coffee:  ['milk','choc'],   cheese: ['bread','pasta'],   rice:  ['oil','pasta'],
+};
+
+// ══════════════════════════════════════════════════════
+// ANALYTICS ENGINE
+// ══════════════════════════════════════════════════════
+const sessionStart = Date.now();
+let nudgesShown = 0;
+let recClicks   = 0;
+
+const analytics = {
+  data: Object.fromEntries(PRODUCTS.map(p=>[p.id,{
+    name:p.name, gazeTime:0, inspected:false, inspectTime:0,
+    bought:false, gazeStart:null, inspectStart:null,
+  }])),
+  timeline:[], cart:[], cartTotal:0,
+
+  log(event, product='', color='#7C4DFF'){
+    const t=((Date.now()-sessionStart)/1000).toFixed(1);
+    this.timeline.push({t,event,product,color});
+  },
+  startGaze(id){const d=this.data[id];if(d)d.gazeStart=Date.now();},
+  endGaze(id){const d=this.data[id];if(d&&d.gazeStart){d.gazeTime+=(Date.now()-d.gazeStart)/1000;d.gazeStart=null;}},
+  startInspect(id){const d=this.data[id];if(d){d.inspected=true;d.inspectStart=Date.now();}this.log('Opened panel',this.data[id]?.name,'#b39dff');},
+  endInspect(id){const d=this.data[id];if(d&&d.inspectStart){d.inspectTime+=(Date.now()-d.inspectStart)/1000;d.inspectStart=null;}},
+  buy(p){const d=this.data[p.id];if(d)d.bought=true;this.cart.push(p);this.cartTotal+=p.price;this.log('Added to cart',p.name,'#2ecc71');}
+};
+
+// ══════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ══════════════════════════════════════════════════════
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled=true; renderer.xr.enabled=true;
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x1a1a2e);
+scene.fog=new THREE.Fog(0x1a1a2e,18,35);
+
+const camera=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,100);
+camera.position.set(0,1.6,8);
+
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const sun=new THREE.DirectionalLight(0xffffff,0.9);
+sun.position.set(5,10,5); sun.castShadow=true; scene.add(sun);
+[-6,-2,2,6].forEach(x=>{const pt=new THREE.PointLight(0xfff9e6,0.7,12);pt.position.set(x,4.5,0);scene.add(pt);});
+
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,30),new THREE.MeshLambertMaterial({color:0x263238}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+const ceil=new THREE.Mesh(new THREE.PlaneGeometry(30,30),new THREE.MeshLambertMaterial({color:0x1c1c2a}));
+ceil.rotation.x=Math.PI/2; ceil.position.y=5; scene.add(ceil);
+
+const wm=new THREE.MeshLambertMaterial({color:0x2d2d44});
+[[30,5,0,2.5,-12,0,0],[30,5,0,2.5,12,0,Math.PI],[24,5,-15,2.5,0,0,Math.PI/2],[24,5,15,2.5,0,0,-Math.PI/2]].forEach(([w,h,x,y,z,rx,ry])=>{
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),wm);
+  m.position.set(x,y,z); m.rotation.x=rx; m.rotation.y=ry; scene.add(m);
+});
+
+const shelfMat=new THREE.MeshLambertMaterial({color:0x455a64});
+function makeShelf(x,z){
+  for(let i=0;i<3;i++){const s=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.06,0.6),shelfMat);s.position.set(x,0.5+i*1.1,z);s.castShadow=true;s.receiveShadow=true;scene.add(s);}
+  [-0.95,0.95].forEach(dx=>{const p=new THREE.Mesh(new THREE.BoxGeometry(0.06,3.5,0.6),shelfMat);p.position.set(x+dx,1.75,z);p.castShadow=true;scene.add(p);});
+}
+
+const productMeshes=[];
+const shelfLayout=[{x:-5,z:-3},{x:-5,z:3},{x:0,z:-3},{x:0,z:3},{x:5,z:-3},{x:5,z:3}];
+shelfLayout.forEach(pos=>makeShelf(pos.x,pos.z));
+shelfLayout.forEach((pos,si)=>{
+  for(let i=0;i<2;i++){
+    const p=PRODUCTS[si*2+i]; if(!p) return;
+    const mat=new THREE.MeshLambertMaterial({color:p.color,emissive:p.color,emissiveIntensity:0.06});
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.55,0.35),mat);
+    const ox=pos.x+(i===0?-0.45:0.45);
+    mesh.position.set(ox,0.83,pos.z); mesh.castShadow=true;
+    mesh.userData={product:p,baseY:0.83};
+    scene.add(mesh); productMeshes.push(mesh);
+    const lp=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.04,0.45),new THREE.MeshLambertMaterial({color:0x37474f}));
+    lp.position.set(ox,0.54,pos.z); scene.add(lp);
+  }
+});
+
+const sign=new THREE.Mesh(new THREE.PlaneGeometry(4,0.8),new THREE.MeshLambertMaterial({color:0x7C4DFF}));
+sign.position.set(0,4,-11.5); scene.add(sign);
+
+// ══════════════════════════════════════════════════════
+// RECOMMENDATION ENGINE
+// ══════════════════════════════════════════════════════
+function getProductBadge(p){
+  if(p.pop>=90) return {text:'🔥 Best Seller',cls:'badge-hot'};
+  if(p.pop>=85) return {text:'⭐ Popular',cls:'badge-pop'};
+  if(p.stock<=6) return {text:'⚠️ Low Stock',cls:'badge-hot'};
+  if(p.price<2)  return {text:'💰 Great Value',cls:'badge-val'};
+  return null;
+}
+
+function buildRecommendations(product){
+  const alts = ALTERNATIVES[product.id]||[];
+  const recList = document.getElementById('rec-list');
+  recList.innerHTML='';
+  alts.forEach(alt=>{
+    const diff = alt.price - product.price;
+    const diffStr = diff>0
+      ? `<span class="pricier">+$${diff.toFixed(2)} more</span>`
+      : `<span class="cheaper">Save $${Math.abs(diff).toFixed(2)}</span>`;
+    const div=document.createElement('div');
+    div.className='rec-item';
+    div.innerHTML=`
+      <div class="rname">${alt.name}</div>
+      <div style="font-size:0.72rem;color:#555">${alt.brand}</div>
+      <div class="rprice">$${alt.price.toFixed(2)} ${diffStr}</div>
+      <div class="rstat">${alt.note}</div>`;
+    div.addEventListener('click',()=>{
+      recClicks++;
+      analytics.log(`Clicked recommendation: ${alt.name}`, product.name,'#f39c12');
+      showAssistantBubble(`You selected <strong>${alt.name}</strong> by ${alt.brand} at <strong>$${alt.price.toFixed(2)}</strong>. ${diff<0?'That saves you $'+Math.abs(diff).toFixed(2)+'!':'This is a premium option.'}`, []);
+    });
+    recList.appendChild(div);
+  });
+  document.getElementById('rec-sidebar').style.display = alts.length>0?'block':'none';
+}
+
+// ══════════════════════════════════════════════════════
+// SMART NUDGES (shown at dwell time thresholds)
+// ══════════════════════════════════════════════════════
+function getNudge(product, seconds){
+  const ab = ALSO_BOUGHT[product.id]||[];
+  const abNames = ab.map(id=>PRODUCTS.find(p=>p.id===id)?.name).filter(Boolean);
+
+  if(seconds===5)  return `${product.pop}% of shoppers who viewed this bought it. ${product.stock<=8?'Only '+product.stock+' left in stock!':''}`;
+  if(seconds===10) return abNames.length>0?`Shoppers who bought this also picked up <strong>${abNames[0]}</strong>. Check it out!`:`This is one of our top picks in ${product.cat}.`;
+  if(seconds===16) return `Still deciding? Scroll right to see cheaper &amp; premium alternatives for this product.`;
+  if(seconds===24) return `💡 Price alert: The budget alternative saves you $${Math.abs((ALTERNATIVES[product.id]?.[0]?.price||product.price)-product.price).toFixed(2)}. See the options panel →`;
+  return null;
+}
+
+// ══════════════════════════════════════════════════════
+// ASSISTANT BUBBLE
+// ══════════════════════════════════════════════════════
+let bubbleTimeout=null;
+function showAssistantBubble(msg, actions=[], autohide=8000){
+  clearTimeout(bubbleTimeout);
+  document.getElementById('ab-body').innerHTML=msg;
+  const actDiv=document.getElementById('ab-actions');
+  actDiv.innerHTML='';
+  actions.forEach(a=>{
+    const btn=document.createElement('button');
+    btn.className='ab-btn'; btn.textContent=a.label;
+    btn.onclick=a.fn; actDiv.appendChild(btn);
+  });
+  document.getElementById('assistant-bubble').style.display='block';
+  if(autohide) bubbleTimeout=setTimeout(()=>{document.getElementById('assistant-bubble').style.display='none';},autohide);
+}
+document.getElementById('ab-close').onclick=()=>{
+  clearTimeout(bubbleTimeout);
+  document.getElementById('assistant-bubble').style.display='none';
+};
+
+// ══════════════════════════════════════════════════════
+// CART
+// ══════════════════════════════════════════════════════
+function addToCart(product){
+  analytics.buy(product);
+  const li=document.createElement('li');
+  li.textContent=`${product.name} — $${product.price.toFixed(2)}`;
+  document.getElementById('cart-items').appendChild(li);
+  document.getElementById('cart-total').textContent=`Total: $${analytics.cartTotal.toFixed(2)}`;
+  document.getElementById('go-billing-btn').style.display='block';
+
+  // Show also-bought bubble
+  const ab=(ALSO_BOUGHT[product.id]||[]).map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean);
+  if(ab.length>0){
+    setTimeout(()=>{
+      showAssistantBubble(
+        `Great choice! Customers who bought <strong>${product.name}</strong> also frequently pick up <strong>${ab[0].name}</strong> ($${ab[0].price.toFixed(2)}).`,
+        [{label:`View ${ab[0].name}`,fn:()=>{
+          closePanel();
+          const mesh=productMeshes.find(m=>m.userData.product.id===ab[0].id);
+          if(mesh) openPanel(mesh.userData.product);
+        }}]
+      );
+    },400);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PANEL + DWELL
+// ══════════════════════════════════════════════════════
+let panelOpen=false, selectedProd=null;
+let dwellInterval=null, dwellSeconds=0;
+
+function startDwell(product){
+  dwellSeconds=0; analytics.startInspect(product.id);
+  clearInterval(dwellInterval);
+  dwellInterval=setInterval(()=>{
+    dwellSeconds++;
+    document.getElementById('dwell-sec').textContent=dwellSeconds;
+    const pct=Math.min(dwellSeconds/30*100,100);
+    const bar=document.getElementById('dwell-bar');
+    bar.style.width=pct+'%';
+    bar.style.background=dwellSeconds<8?'#7C4DFF':dwellSeconds<18?'#f39c12':'#e74c3c';
+
+    // Nudge at thresholds
+    const nudge=getNudge(product,dwellSeconds);
+    if(nudge){
+      nudgesShown++;
+      const nudgeEl=document.getElementById('smart-nudge');
+      document.getElementById('nudge-text').innerHTML=nudge;
+      nudgeEl.style.display='block';
+      analytics.log(`Nudge shown at ${dwellSeconds}s`,product.name,'#f39c12');
+    }
+  },1000);
+}
+function stopDwell(){
+  clearInterval(dwellInterval);
+  if(selectedProd) analytics.endInspect(selectedProd.id);
+}
+
+function openPanel(product){
+  selectedProd=product;
+  document.getElementById('prod-name').textContent=product.name;
+  document.getElementById('prod-desc').textContent=product.desc;
+  document.getElementById('prod-price').textContent=`$${product.price.toFixed(2)}`;
+
+  // Badge
+  const badgeEl=document.getElementById('prod-badge');
+  const b=getProductBadge(product);
+  badgeEl.innerHTML=b?`<span class="badge ${b.cls}">${b.text}</span>`:'';
+
+  document.getElementById('add-to-cart').textContent='Add to Cart';
+  document.getElementById('add-to-cart').style.background='#7C4DFF';
+  document.getElementById('dwell-bar').style.width='0%';
+  document.getElementById('dwell-sec').textContent='0';
+  document.getElementById('smart-nudge').style.display='none';
+  document.getElementById('info-panel').style.display='block';
+  document.getElementById('resume-hint').style.display='block';
+  document.getElementById('crosshair').style.display='none';
+  document.getElementById('hover-label').style.display='none';
+  panelOpen=true;
+
+  buildRecommendations(product);
+  startDwell(product);
+  if(document.pointerLockElement) document.exitPointerLock();
+}
+
+function closePanel(){
+  stopDwell();
+  document.getElementById('info-panel').style.display='none';
+  document.getElementById('resume-hint').style.display='none';
+  document.getElementById('crosshair').style.display='block';
+  panelOpen=false; selectedProd=null;
+  renderer.domElement.requestPointerLock();
+}
+
+document.getElementById('close-panel').addEventListener('click',closePanel);
+document.addEventListener('keydown',e=>{if(e.code==='Escape'&&panelOpen)closePanel();});
+
+document.getElementById('add-to-cart').addEventListener('click',e=>{
+  e.stopPropagation();
+  if(!selectedProd) return;
+  addToCart(selectedProd);
+  const btn=document.getElementById('add-to-cart');
+  btn.textContent='✓ Added!'; btn.style.background='#2ecc71';
+  setTimeout(()=>closePanel(),1200);
+});
+
+// ══════════════════════════════════════════════════════
+// BILLING
+// ══════════════════════════════════════════════════════
+document.getElementById('go-billing-btn').addEventListener('click',()=>{
+  if(analytics.cart.length===0){alert('Your cart is empty!');return;}
+  if(document.pointerLockElement) document.exitPointerLock();
+  document.getElementById('hud').style.display='none';
+  document.getElementById('crosshair').style.display='none';
+  document.getElementById('controls-hint').style.display='none';
+  document.getElementById('assistant-bubble').style.display='none';
+  analytics.log('Proceeded to billing','','#f39c12');
+  const wrap=document.getElementById('billing-items');
+  wrap.innerHTML='';
+  analytics.cart.forEach(p=>{
+    const row=document.createElement('div');
+    row.className='order-row';
+    row.innerHTML=`<span class="name">${p.name} <span style="font-size:0.75rem;color:#444">(${p.brand})</span></span><span class="amt">$${p.price.toFixed(2)}</span>`;
+    wrap.appendChild(row);
+  });
+  document.getElementById('billing-total').textContent=`$${analytics.cartTotal.toFixed(2)}`;
+  document.getElementById('billing-screen').style.display='block';
+});
+
+document.getElementById('back-btn').addEventListener('click',()=>{
+  document.getElementById('billing-screen').style.display='none';
+  document.getElementById('hud').style.display='block';
+  document.getElementById('crosshair').style.display='block';
+  document.getElementById('controls-hint').style.display='block';
+  analytics.log('Returned to store','','#aaa');
+  renderer.domElement.requestPointerLock();
+});
+
+document.getElementById('confirm-btn').addEventListener('click',()=>{
+  analytics.log('Transaction completed','','#2ecc71');
+  document.getElementById('billing-screen').style.display='none';
+  buildPostPurchaseRecs();
+  document.getElementById('success-screen').style.display='flex';
+});
+
+// ══════════════════════════════════════════════════════
+// POST-PURCHASE PERSONALIZED RECOMMENDATIONS
+// ══════════════════════════════════════════════════════
+function buildPostPurchaseRecs(){
+  const boughtIds=analytics.cart.map(p=>p.id);
+  const hesitated=Object.entries(analytics.data)
+    .filter(([id,d])=>d.inspected&&!d.bought&&d.inspectTime>2)
+    .sort((a,b)=>b[1].inspectTime-a[1].inspectTime)
+    .map(([id])=>id);
+
+  const candidates=new Set();
+  // From also-bought
+  boughtIds.forEach(id=>(ALSO_BOUGHT[id]||[]).forEach(r=>{ if(!boughtIds.includes(r)) candidates.add(r); }));
+  // From hesitated
+  hesitated.slice(0,3).forEach(id=>candidates.add(id));
+
+  const recs=[...candidates].slice(0,4).map(id=>{
+    const p=PRODUCTS.find(x=>x.id===id);
+    const reason=boughtIds.some(bid=>(ALSO_BOUGHT[bid]||[]).includes(id))
+      ? `Frequently bought with your items`
+      : `You spent time considering this`;
+    return {p,reason};
+  }).filter(x=>x.p);
+
+  const grid=document.getElementById('post-rec-grid');
+  grid.innerHTML='';
+  if(recs.length===0){
+    grid.innerHTML='<p style="color:#444;font-size:0.85rem;">Great — you bought everything you looked at!</p>';
+    return;
+  }
+  recs.forEach(({p,reason})=>{
+    grid.innerHTML+=`
+      <div class="post-rec-card">
+        <div class="prname">${p.name}</div>
+        <div style="font-size:0.72rem;color:#555">${p.brand}</div>
+        <div class="prprice">$${p.price.toFixed(2)}</div>
+        <div class="prreason">${reason}</div>
+      </div>`;
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// ANALYTICS DASHBOARD
+// ══════════════════════════════════════════════════════
+document.getElementById('view-analytics-btn').addEventListener('click',()=>{
+  document.getElementById('success-screen').style.display='none';
+  buildDashboard();
+  document.getElementById('analytics-screen').style.display='block';
+});
+
+function buildDashboard(){
+  const data=analytics.data, cart=analytics.cart;
+  const sessionSec=((Date.now()-sessionStart)/1000).toFixed(0);
+  document.getElementById('session-time-lbl').textContent=`Session: ${sessionSec}s`;
+
+  const viewed=Object.values(data).filter(d=>d.gazeTime>0.5).length;
+  const inspected=Object.values(data).filter(d=>d.inspected).length;
+  const bought=cart.length;
+  const conv=inspected>0?Math.round(bought/inspected*100):0;
+  document.getElementById('kpi-viewed').textContent=viewed;
+  document.getElementById('kpi-inspected').textContent=inspected;
+  document.getElementById('kpi-bought').textContent=bought;
+  document.getElementById('kpi-conv').textContent=conv+'%';
+  document.getElementById('kpi-spend').textContent='$'+analytics.cartTotal.toFixed(2);
+  const hesitN=Object.values(data).filter(d=>d.inspected&&!d.bought&&d.inspectTime>3).length;
+  document.getElementById('kpi-hesit').textContent=hesitN;
+  document.getElementById('kpi-nudge').textContent=nudgesShown;
+  document.getElementById('kpi-recclick').textContent=recClicks;
+
+  // Heatmap
+  const sorted=Object.entries(data).filter(([,d])=>d.gazeTime>0.1).sort((a,b)=>b[1].gazeTime-a[1].gazeTime);
+  const maxG=sorted[0]?sorted[0][1].gazeTime:1;
+  const hm=document.getElementById('heatmap-list'); hm.innerHTML='';
+  sorted.forEach(([,d])=>{
+    const pct=Math.round(d.gazeTime/maxG*100);
+    const col=pct>70?'#e74c3c':pct>40?'#f39c12':'#7C4DFF';
+    hm.innerHTML+=`<div class="heat-row"><span class="heat-name">${d.name}</span><div class="heat-bar-wrap"><div class="heat-bar" style="width:${pct}%;background:${col}"></div></div><span class="heat-val">${d.gazeTime.toFixed(1)}s</span></div>`;
+  });
+  if(!sorted.length) hm.innerHTML='<p style="color:#444;font-size:0.8rem;">No gaze data.</p>';
+
+  // Funnel
+  const fd=[{label:'Walked by',n:viewed,color:'#7C4DFF'},{label:'Inspected',n:inspected,color:'#f39c12'},{label:'Purchased',n:bought,color:'#2ecc71'}];
+  const maxF=fd[0].n||1;
+  const fl=document.getElementById('funnel-list'); fl.innerHTML='';
+  fd.forEach(f=>{const pct=Math.round(f.n/maxF*100);fl.innerHTML+=`<div class="funnel-row"><span class="funnel-label">${f.label}</span><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${pct}%;background:${f.color};color:#fff">${f.n}</div></div><span class="funnel-pct">${pct}%</span></div>`;});
+
+  // Hesitation table
+  const hDiv=document.getElementById('hesitation-list'); hDiv.innerHTML='';
+  const allInsp=Object.entries(data).filter(([,d])=>d.inspected).sort((a,b)=>b[1].inspectTime-a[1].inspectTime);
+  if(!allInsp.length) hDiv.innerHTML='<p style="color:#444;font-size:0.8rem;margin-top:8px;">No products inspected.</p>';
+  allInsp.forEach(([,d])=>{
+    let v,vc;
+    if(d.bought){v='Purchased';vc='badge-pop';}
+    else if(d.inspectTime>15){v='Very high hesitation';vc='badge-hot';}
+    else if(d.inspectTime>6){v='High hesitation';vc='badge-hot';}
+    else if(d.inspectTime>3){v='Moderate hesitation';vc='badge-val';}
+    else{v='Quick browse';vc='badge-new';}
+    hDiv.innerHTML+=`<div class="hesit-row"><span class="pname">${d.name}</span><span class="htime">${d.inspectTime.toFixed(1)}s</span><span style="width:60px;text-align:right;font-size:0.72rem;color:#555">${d.inspected?'Yes':'No'}</span><span class="verdict"><span class="badge ${vc}">${v}</span></span></div>`;
+  });
+
+  // Chart
+  const ctx=document.getElementById('spend-chart').getContext('2d');
+  if(cart.length>0){
+    new Chart(ctx,{type:'doughnut',data:{labels:cart.map(p=>p.name),datasets:[{data:cart.map(p=>p.price),backgroundColor:['#7C4DFF','#f39c12','#2ecc71','#e74c3c','#81d4fa','#ffc107','#e67e22','#aed581','#3498db'],borderWidth:0}]},options:{plugins:{legend:{labels:{color:'#aaa',font:{size:10}},position:'bottom'}},cutout:'60%'}});
+  }
+
+  // Timeline
+  const tl=document.getElementById('timeline-list'); tl.innerHTML='';
+  analytics.timeline.slice(-14).forEach(e=>{tl.innerHTML+=`<li><span class="dot" style="background:${e.color}"></span><span class="evttime">${e.t}s</span><span class="evt">${e.event}${e.product?' — <strong>'+e.product+'</strong>':''}</span></li>`;});
+
+  // AI Insights
+  const iDiv=document.getElementById('insights-list'); iDiv.innerHTML='';
+  generateInsights(data,cart,viewed,inspected,bought,conv,sessionSec).forEach(ins=>{
+    iDiv.innerHTML+=`<div class="insight"><span class="icon">${ins.icon}</span><div class="text">${ins.text}</div></div>`;
+  });
+}
+
+function generateInsights(data,cart,viewed,inspected,bought,conv,dur){
+  const ins=[];
+  if(conv>=60) ins.push({icon:'🎯',text:`<strong>High conversion (${conv}%)</strong> — shopper was decisive. The recommendation engine likely reinforced purchase confidence.`});
+  else if(conv>=30) ins.push({icon:'⚠️',text:`<strong>Moderate conversion (${conv}%)</strong> — ${inspected} products inspected, ${bought} purchased. Focus discount nudges on highest-hesitation items.`});
+  else ins.push({icon:'🔴',text:`<strong>Low conversion (${conv}%)</strong> — review pricing on most-hesitated products. Consider exit-intent offers.`});
+
+  const top=Object.entries(data).filter(([,d])=>d.inspected&&!d.bought).sort((a,b)=>b[1].inspectTime-a[1].inspectTime)[0];
+  if(top) ins.push({icon:'🧠',text:`<strong>"${top[1].name}"</strong> caused the most hesitation (${top[1].inspectTime.toFixed(1)}s uninspected). Recommend: price-drop trigger, limited-time offer, or bundle with a popular item.`});
+
+  const gazeOnly=Object.entries(data).filter(([,d])=>d.gazeTime>2&&!d.inspected).sort((a,b)=>b[1].gazeTime-a[1].gazeTime)[0];
+  if(gazeOnly) ins.push({icon:'👁️',text:`<strong>"${gazeOnly[1].name}"</strong> attracted ${gazeOnly[1].gazeTime.toFixed(1)}s of gaze without a panel click. The visual is compelling but the CTA is weak — improve the in-world label or add a pulsing highlight.`});
+
+  const catSpend={};
+  cart.forEach(p=>{catSpend[p.cat]=(catSpend[p.cat]||0)+p.price;});
+  const topCat=Object.entries(catSpend).sort((a,b)=>b[1]-a[1])[0];
+  if(topCat) ins.push({icon:'🏆',text:`<strong>${topCat[0]}</strong> was the top spend category ($${topCat[1].toFixed(2)}). Prioritise shelf space and stock depth here. This user profile is a loyal ${topCat[0].toLowerCase()} buyer.`});
+
+  if(nudgesShown>0) ins.push({icon:'⚡',text:`<strong>${nudgesShown} smart nudges</strong> were shown during this session. Nudge-to-conversion correlation: ${bought>0?'positive (purchase completed)':'inconclusive (no purchase)'}. Refine nudge timing based on average hesitation threshold.`});
+  if(recClicks>0) ins.push({icon:'🔄',text:`<strong>${recClicks} alternative recommendation</strong> click${recClicks>1?'s':''} recorded. Shoppers engaging with alternatives indicates price sensitivity — stock the budget alternative more prominently.`});
+
+  if(+dur<60) ins.push({icon:'⚡',text:`<strong>Quick session (${dur}s)</strong> — goal-oriented shopper. Minimal discovery friction.`});
+  else if(+dur>180) ins.push({icon:'🕑',text:`<strong>Long session (${dur}s)</strong> — consider adding search, filters, or a "featured today" shelf to reduce exploration time.`});
+
+  if(cart.length>=2) ins.push({icon:'🔗',text:`<strong>Bundle opportunity:</strong> ${cart.slice(0,2).map(p=>p.name).join(' + ')} were both purchased. Create a curated bundle at a 5-10% discount to increase basket size for this shopper type.`});
+  return ins;
+}
+
+// ══════════════════════════════════════════════════════
+// RAYCASTER
+// ══════════════════════════════════════════════════════
+const raycaster=new THREE.Raycaster();
+const centre=new THREE.Vector2(0,0);
+let hoveredMesh=null;
+
+function updateHover(){
+  if(panelOpen) return;
+  raycaster.setFromCamera(centre,camera);
+  const hits=raycaster.intersectObjects(productMeshes);
+  if(hits.length>0){
+    const hit=hits[0].object;
+    if(hit!==hoveredMesh){
+      if(hoveredMesh){analytics.endGaze(hoveredMesh.userData.product.id);hoveredMesh.material.emissiveIntensity=0.06;hoveredMesh.scale.setScalar(1);}
+      hoveredMesh=hit;
+      analytics.startGaze(hit.userData.product.id);
+      analytics.log('Gazing at',hit.userData.product.name,'#7C4DFF');
+      hit.material.emissiveIntensity=0.55; hit.scale.setScalar(1.1);
+    }
+    document.getElementById('crosshair').classList.add('aimed');
+    document.getElementById('hover-label').textContent=`${hit.userData.product.name}  ·  $${hit.userData.product.price.toFixed(2)}  —  click to inspect`;
+    document.getElementById('hover-label').style.display='block';
+  } else {
+    if(hoveredMesh){analytics.endGaze(hoveredMesh.userData.product.id);hoveredMesh.material.emissiveIntensity=0.06;hoveredMesh.scale.setScalar(1);hoveredMesh=null;}
+    document.getElementById('crosshair').classList.remove('aimed');
+    document.getElementById('hover-label').style.display='none';
+  }
+}
+
+renderer.domElement.addEventListener('click',()=>{
+  if(panelOpen) return;
+  if(document.pointerLockElement!==renderer.domElement){renderer.domElement.requestPointerLock();return;}
+  if(hoveredMesh) openPanel(hoveredMesh.userData.product);
+});
+
+// ══════════════════════════════════════════════════════
+// MOVEMENT + RENDER
+// ══════════════════════════════════════════════════════
+let yaw=0,pitch=0;
+document.addEventListener('mousemove',e=>{
+  if(panelOpen||document.pointerLockElement!==renderer.domElement) return;
+  yaw-=e.movementX*0.002; pitch-=e.movementY*0.002;
+  pitch=Math.max(-Math.PI/3,Math.min(Math.PI/3,pitch));
+  camera.rotation.order='YXZ'; camera.rotation.y=yaw; camera.rotation.x=pitch;
+});
+
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.code]=true;});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+function handleMovement(dt){
+  if(panelOpen) return;
+  const speed=4*dt,dir=new THREE.Vector3();
+  if(keys['KeyW']||keys['ArrowUp'])    dir.z-=1;
+  if(keys['KeyS']||keys['ArrowDown'])  dir.z+=1;
+  if(keys['KeyA']||keys['ArrowLeft'])  dir.x-=1;
+  if(keys['KeyD']||keys['ArrowRight']) dir.x+=1;
+  dir.normalize().multiplyScalar(speed).applyEuler(new THREE.Euler(0,camera.rotation.y,0));
+  camera.position.add(dir);
+  camera.position.x=Math.max(-13,Math.min(13,camera.position.x));
+  camera.position.z=Math.max(-11,Math.min(11,camera.position.z));
+  camera.position.y=1.6;
+}
+
+function animateProducts(t){
+  productMeshes.forEach((m,i)=>{
+    if(m===hoveredMesh) return;
+    m.position.y=m.userData.baseY+Math.sin(t*1.4+i*0.7)*0.018;
+    m.rotation.y=t*0.25+i*0.5;
+  });
+}
+
+function startExperience(){
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('hud').style.display='block';
+  document.getElementById('crosshair').style.display='block';
+  document.getElementById('controls-hint').style.display='block';
+  analytics.log('Session started','','#2ecc71');
+  setTimeout(()=>{
+    showAssistantBubble('👋 Welcome to VR Mart! Aim your crosshair at any product and click to inspect it. I\'ll give you smart suggestions as you shop!', [], 6000);
+  }, 1500);
+  renderer.domElement.requestPointerLock();
+}
+function enterVR(){
+  if(!navigator.xr){startExperience();return;}
+  navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
+    if(ok){navigator.xr.requestSession('immersive-vr').then(s=>{renderer.xr.setSession(s);startExperience();});}
+    else startExperience();
+  });
+}
+document.getElementById('enter-vr').onclick=enterVR;
+document.getElementById('enter-desktop').onclick=startExperience;
+
+let last=0;
+renderer.setAnimationLoop(time=>{
+  const t=time/1000,dt=Math.min(t-last,0.1); last=t;
+  handleMovement(dt); animateProducts(t); updateHover();
+  renderer.render(scene,camera);
+});
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
