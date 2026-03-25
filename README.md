@@ -1,17 +1,20 @@
-# 🛒 VR Mart — AI-Powered WebXR Virtual Shopping Experience
+# 🛒 VR Mart - AI-Powered WebXR Virtual Shopping Experience
 
-> A research-grade immersive retail system combining WebXR, real-time behavioral analytics, and an intelligent recommendation engine — built entirely in the browser with zero dependencies to install.
-
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-7C4DFF?style=for-the-badge)](https://yourusername.github.io/vr-mart-smart-shopping)
-[![WebXR](https://img.shields.io/badge/WebXR-Ready-2ecc71?style=for-the-badge)](https://immersiveweb.dev/)
-[![Three.js](https://img.shields.io/badge/Three.js-r128-blue?style=for-the-badge)](https://threejs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+> A research-grade immersive retail system combining WebXR, real-time behavioral analytics, and an intelligent recommendation engine - built entirely in the browser with zero dependencies to install.
 
 ---
 
 ## 📸 Screenshots
 
-> _(Add screenshots of your VR store, product panel, and analytics dashboard here)_
+<img width="1919" height="844" alt="image" src="https://github.com/user-attachments/assets/7cc4aa87-3d85-4cb8-aa11-41b35b1c719c" />
+<img width="1767" height="794" alt="image" src="https://github.com/user-attachments/assets/5a5cfe4c-ee48-4640-9f13-6bbb2e9b7a10" />
+<img width="1697" height="841" alt="image" src="https://github.com/user-attachments/assets/148b9e2c-5f49-4454-ad08-faa35a643461" />
+<img width="1764" height="811" alt="image" src="https://github.com/user-attachments/assets/c2c89153-93a4-433e-a2d3-17d95f8c1d42" />
+<img width="1681" height="790" alt="image" src="https://github.com/user-attachments/assets/a37f8675-ebb9-4410-8b63-7b8fc9607a44" />
+<img width="1901" height="705" alt="image" src="https://github.com/user-attachments/assets/2c4209c1-79a4-4ad5-ba45-f38eedded85a" />
+<img width="1888" height="858" alt="image" src="https://github.com/user-attachments/assets/a825c8a7-69fb-4ca7-b578-6a72b9808afd" />
+<img width="1875" height="394" alt="image" src="https://github.com/user-attachments/assets/7b1b166c-fe7a-4cc0-b66a-e14b8cd7f944" />
+
 
 ---
 
@@ -32,20 +35,20 @@ This project was built to explore the intersection of:
 ### 🛍️ VR Shopping Environment
 - Fully walkable 3D supermarket built with **Three.js**
 - 12 products across 6 shelf units with dynamic lighting and shadows
-- **WebXR API** support — works on Oculus Quest, HTC Vive, and any WebXR-compatible headset
+- **WebXR API** support - works on Oculus Quest, HTC Vive, and any WebXR-compatible headset
 - Crosshair-based gaze selection with hover-to-highlight interaction
 - Works in desktop browser with mouse + keyboard (no headset required)
 
 ### 🤖 Real-Time AI Recommendation Engine
 - **Alternative brand suggestions** shown inside product panels (cheaper + premium options)
 - **Price comparison** with exact savings/premium displayed
-- **Popularity badges** — Best Seller 🔥, Popular ⭐, Low Stock ⚠️
-- **Collaborative filtering** — "Customers who bought X also bought Y"
+- **Popularity badges** - Best Seller 🔥, Popular ⭐, Low Stock ⚠️
+- **Collaborative filtering** - "Customers who bought X also bought Y"
 - **Smart nudge system** triggered at hesitation time thresholds:
-  - `5s` — Social proof + stock urgency
-  - `10s` — Cross-sell recommendation
-  - `16s` — Prompt to explore alternatives
-  - `24s` — Price-drop alert
+  - `5s` - Social proof + stock urgency
+  - `10s` - Cross-sell recommendation
+  - `16s` - Prompt to explore alternatives
+  - `24s` - Price-drop alert
 
 ### 🧠 Behavioral Analytics Engine
 Tracks every micro-interaction during the session:
@@ -62,12 +65,12 @@ Tracks every micro-interaction during the session:
 ### 📊 Shopkeeper Intelligence Dashboard
 Post-session dashboard with:
 - **8 KPI cards** (conversion rate, spend, hesitation count, nudges shown, etc.)
-- **Attention heatmap** — ranked gaze time per product
+- **Attention heatmap** - ranked gaze time per product
 - **Purchase funnel** visualization
-- **Hesitation analysis table** — color-coded by severity
+- **Hesitation analysis table** - color-coded by severity
 - **Spend breakdown** doughnut chart (Chart.js)
-- **Behavioral timeline** — full event log with timestamps
-- **AI-generated insights** — actionable recommendations for the shopkeeper
+- **Behavioral timeline** - full event log with timestamps
+- **AI-generated insights** - actionable recommendations for the shopkeeper
 
 ### 🎯 Post-Purchase Personalization
 After checkout, generates a personalized "You might also like" section based on:
@@ -92,7 +95,7 @@ After checkout, generates a personalized "You might also like" section based on:
 
 ## 🚀 Getting Started
 
-### Option 1 — Run locally (simplest)
+### Option 1 - Run locally (simplest)
 ```bash
 # Clone the repo
 git clone https://github.com/yourusername/vr-mart-smart-shopping.git
@@ -102,7 +105,7 @@ cd vr-mart-smart-shopping
 open index.html
 ```
 
-### Option 2 — Live server (recommended for WebXR)
+### Option 2 - Live server (recommended for WebXR)
 ```bash
 # Using Python
 python -m http.server 8000
@@ -112,7 +115,7 @@ python -m http.server 8000
 npx serve .
 ```
 
-### Option 3 — Live demo
+### Option 3 - Live demo
 Visit the GitHub Pages deployment:
 `https://yourusername.github.io/vr-mart-smart-shopping`
 
@@ -135,10 +138,10 @@ Visit the GitHub Pages deployment:
 
 This project addresses key open questions in **immersive retail research**:
 
-1. **Attention tracking without eye-tracking hardware** — using crosshair dwell time as a gaze proxy
-2. **Real-time behavioral intervention** — do nudges at hesitation thresholds improve conversion?
-3. **Alternative recommendation timing** — when is the optimal moment to show a competing product?
-4. **XR vs traditional e-commerce** — does spatial browsing change purchase behavior?
+1. **Attention tracking without eye-tracking hardware** - using crosshair dwell time as a gaze proxy
+2. **Real-time behavioral intervention** - do nudges at hesitation thresholds improve conversion?
+3. **Alternative recommendation timing** - when is the optimal moment to show a competing product?
+4. **XR vs traditional e-commerce** - does spatial browsing change purchase behavior?
 
 ### Potential Extensions
 -  Eye-tracking integration (WebXR Eye Tracking API)
@@ -189,7 +192,7 @@ vr-mart-smart-shopping/
 
 ## 📄 License
 
-MIT License — free to use, modify, and build upon.
+MIT License - free to use, modify, and build upon.
 
 ---
 
@@ -197,4 +200,4 @@ MIT License — free to use, modify, and build upon.
 
 Built as a research prototype exploring AI-enhanced immersive retail experiences.
 
-> *"The future of shopping is not just virtual — it's intelligent."*
+> *"The future of shopping is not just virtual - it's intelligent."*
