@@ -190,13 +190,9 @@ vr-mart-smart-shopping/
 
 ---
 
-## 📄 License
-
-MIT License - free to use, modify, and build upon.
-
----
-
 ## 👨‍💻 Author
+
+Bhoomika Narasimhulu
 
 Built as a research prototype exploring AI-enhanced immersive retail experiences.
 
